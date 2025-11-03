@@ -1,0 +1,91 @@
+const express = require('express');
+const app = express();
+const PORT = 3000;
+app.use(express.json());
+const loggingMiddleware = (req, res, next) => {
+const timestamp = new Date().toISOString();
+console.log(`[${timestamp}] ${req.method} ${req.url}`);
+next();
+};
+const authMiddleware = (req, res, next) => {
+const authHeader = req.headers.authorization;
+if (!authHeader) {
+return res.status(401).json({
+message: "Authorization header missing or incorrect"
+});
+}
+const token = authHeader.split(' ')[1];
+if (!token || token !== 'mysecrettoken') {
+return res.status(401).json({
+message: "Authorization header missing or incorrect"
+});
+}
+next();
+};
+app.use(loggingMiddleware);
+app.get('/public', (req, res) => {
+res.json({
+message: "This is a public route. No authentication required."
+});
+});
+app.get('/protected', authMiddleware, (req, res) => {
+res.json({
+message: "You have accessed a protected route with a valid Bearer token!"
+});
+});
+let cards = [
+{ id: 1, suit: "Hearts", value: "Ace" },
+{ id: 2, suit: "Spades", value: "King" },
+{ id: 3, suit: "Diamonds", value: "Queen" }
+];
+let nextId = 4;
+app.use((req, res, next) => {
+res.header('Access-Control-Allow-Origin', '*');
+res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+next();
+});
+app.get('/cards', (req, res) => {
+res.json(cards);
+});
+app.get('/cards/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const card = cards.find(c => c.id === id);
+if (card) {
+res.json(card);
+} else {
+res.status(404).json({ error: 'Card not found' });
+}
+});
+app.post('/cards', (req, res) => {
+const { suit, value } = req.body;
+if (!suit || !value) {
+return res.status(400).json({ error: 'Suit and value required' });
+}
+const newCard = {
+id: nextId++,
+suit,
+value
+};
+cards.push(newCard);
+res.status(201).json(newCard);
+});
+app.delete('/cards/:id', (req, res) => {
+const id = parseInt(req.params.id);
+const index = cards.findIndex(c => c.id === id);
+if (index !== -1) {
+cards.splice(index, 1);
+res.json({ message: 'Card deleted successfully' });
+} else {
+res.status(404).json({ error: 'Card not found' });
+}
+});
+app.listen(PORT, () => {
+console.log(`✅ Server running on http://localhost:${PORT}`);
+console.log(`📝 Available endpoints:`);
+console.log(`   PUBLIC: GET  http://localhost:${PORT}/public`);
+console.log(`   PROTECTED: GET  http://localhost:${PORT}/protected (Requires Bearer Token)`);
+console.log(`   CARDS: GET  http://localhost:${PORT}/cards`);
+console.log(`   CARDS: POST http://localhost:${PORT}/cards`);
+console.log(`   CARDS: DELETE http://localhost:${PORT}/cards/:id`);
+console.log(`\n🔐 Test Token: "mysecrettoken"`);
+});
